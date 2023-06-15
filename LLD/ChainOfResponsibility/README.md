@@ -11,7 +11,7 @@ the request goes from one handler to another till one of them satisfies the cond
 
 Example LLD Problems on Chain of responsibility are - 
 
-1. Design Logger
+1. [Design Logger](Logger/logger.go)
 2. Design ATM
 3. Design Vending Machine
-4. [Design Hospital App]()
+4. [Design Hospital App](Hospital/hospital.go)
