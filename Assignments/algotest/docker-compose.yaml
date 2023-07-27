@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  # db:
+  #   image: keinos/sqlite3:latest
+  #   stdin_open: true
+  #   tty: true
+  #   volumes:
+  #     - ./db/:/root/db/
+  #   ports:
+  #     - 9000:9000
+  #   restart: unless-stopped
+  api:
+    build:
+      context: .
+      dockerfile: app.Dockerfile
+    ports:
+      - 5000:5000
+    environment:
+      - MYSQLCLIENT_CFLAGS=pkg-config mysqlclient --cflags
+      - MYSQLCLIENT_LDFLAGS=pkg-config mysqlclient --libs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  weather_app:
+    build:
+      context: .
+      dockerfile: Dockerfile
