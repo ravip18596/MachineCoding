@@ -37,7 +37,8 @@ Give 100
 Bonus
 Attempt this only after completing the above requirements.
 
-Support individual (person to person) balances. Also take care of concurrency issues that can arise out of multiple people registering bills at the same time.
+Support individual (person to person) balances. Also take care of concurrency issues
+ that can arise out of multiple people registering bills at the same time.
 
 Detailed Example
 Person :
