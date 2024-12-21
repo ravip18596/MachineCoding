@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"sort"
+)
 
 type Vehicle struct {
 	ID          int
@@ -27,11 +30,15 @@ type LogisticPlanner struct {
 }
 
 func (lp *LogisticPlanner) AssignItemsToVehicles() {
+	sort.Slice(lp.Items, func(i, j int) bool {
+		return lp.Items[i].Priority > lp.Items[j].Priority
+	})
 	for _, item := range lp.Items {
 		for i, vehicle := range lp.Vehicles {
 			if vehicle.CurrentLoad+item.Volume <= vehicle.Capacity {
 				lp.Vehicles[i].CurrentLoad += item.Volume
 				lp.Vehicles[i].Route = append(lp.Vehicles[i].Route, item.Destination)
+				break
 			}
 		}
 	}
@@ -52,7 +59,9 @@ func (lp *LogisticPlanner) GenerateReport() {
 			dePrioritizedItems = append(dePrioritizedItems, item)
 		}
 	}
-
+	fmt.Println("totalCapacity:", totalCapacity)
+	fmt.Println("totalDispatchedVolume:", totalDispatchedVolume)
+	fmt.Println()
 	wastedVolumePercentage := float64(totalCapacity-totalDispatchedVolume) / float64(totalCapacity) * 100
 
 	fmt.Println("Vehicles dispatched:", len(lp.Vehicles))
@@ -135,4 +144,46 @@ func main() {
 	}
 	planner2.AssignItemsToVehicles()
 	planner2.GenerateReport()
+
+	fmt.Println("Case 3")
+	//Case 3
+	vehicles = []Vehicle{
+		{
+			ID:       1,
+			Capacity: 5,
+		},
+	}
+	items = []Item{
+		{
+			Id:          1,
+			Volume:      30,
+			Priority:    4,
+			Destination: "A",
+		},
+		{
+			Id:          2,
+			Volume:      20,
+			Priority:    4,
+			Destination: "B",
+		},
+		{
+			Id:          3,
+			Volume:      1,
+			Priority:    4,
+			Destination: "C",
+		},
+	}
+	planner3 := LogisticPlanner{
+		Vehicles: vehicles,
+		Items:    items,
+	}
+	planner3.AssignItemsToVehicles()
+	planner3.GenerateReport()
+	planner3.Vehicles = append(planner3.Vehicles, Vehicle{
+		ID:       2,
+		Capacity: 30,
+	})
+	planner3.AssignItemsToVehicles()
+	fmt.Println("After adding another vehicle")
+	planner3.GenerateReport()
 }
