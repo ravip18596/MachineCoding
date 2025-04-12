@@ -187,7 +187,9 @@ interface ChefInterface {
 
 ## 5. Dependency Inversion
 
-Class should depend on interfaces rather than concrete class
+- Class should depend on interfaces rather than concrete class
+- No concrete class should depend upon another concrete class
+
 
 Example of code that is directly dependent on concrete class
 ```java
