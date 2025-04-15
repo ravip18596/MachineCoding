@@ -114,6 +114,11 @@ func (s *Singleton) GetInstance() *Singleton {
 
 A strategy design pattern is a behavioral design pattern that allows you to define a family of algorithms, encapsulate each one, and make them interchangeable.
 
+- When you search for a path in google maps, there are multiple ways of transport
+- For different modes of transport, there are different ETA, route and suggestions
+- Rather than implementing behaviours in a method, create a separate class for each behaviour
+  - eg - CarPathCalculator, BikePathCalculator, WalkPathCalculator
+       
 ```java
 public class GoogleMaps {
     
