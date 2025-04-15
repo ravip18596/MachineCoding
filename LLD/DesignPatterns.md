@@ -118,7 +118,9 @@ A strategy design pattern is a behavioral design pattern that allows you to defi
 - For different modes of transport, there are different ETA, route and suggestions
 - Rather than implementing behaviours in a method, create a separate class for each behaviour
   - eg - CarPathCalculator, BikePathCalculator, WalkPathCalculator
-       
+
+![Class Diagram](GoogleMapsStrategyDesignPatternClassDiagram.drawio.png)
+
 ```java
 public class GoogleMaps {
     
