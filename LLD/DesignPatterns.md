@@ -2,15 +2,23 @@
 
 ## Creational Design Patterns
 
+- How will objects be created
+- How many objects will be created
+
 1. Singleton
 2. Factory
 3. Builder
+4. Prototype
 
 ## Structural Design Patterns
 
+- How will a class be structured
+- What attributes/methods will be there
+- How will a class interact with each another class
+
 ## Behavioral Design Patterns
 
-It deals with the action that needs to be performed
+- How to code an action
 
 1. Strategy
 
