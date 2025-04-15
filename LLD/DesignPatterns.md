@@ -83,6 +83,24 @@ class Singleton:
         return Singleton._instance
 ```
 
+- Golang
+```go
+type Singleton struct {
+    instance *Singleton
+    sync.Mutex
+}
+
+func (s *Singleton) GetInstance() *Singleton {
+    if s.instance == nil {
+        s.Lock()
+        defer s.Unlock()
+        if s.instance == nil {
+            s.instance = &Singleton{}
+        }
+    }
+    return s.instance
+}
+```
 
 ### Strategy Design Pattern
 
