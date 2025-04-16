@@ -22,3 +22,4 @@
 
 ## Step 2: Class Diagram
 
+![Class Diagram](tic-tac-toe-lld.drawio.png)
