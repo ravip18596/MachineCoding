@@ -123,6 +123,50 @@ A strategy design pattern is a behavioral design pattern that allows you to defi
 
 ```java
 public class GoogleMaps {
-    
+  public GoogleMaps(String mode, String src, String dest) {
+    PathCalculator pathCalculator = PathCalculatorFactory.getPathCalculator(mode);
+    pathCalculator.findPath(src, dest);
+  }
+  public static void main(String[] args) {
+
+    GoogleMaps gm = new GoogleMaps("Car", "A", "B");
+    GoogleMaps gm2 = new GoogleMaps("Bike", "A", "B");
+    GoogleMaps gm3 = new GoogleMaps("Walk", "A", "B");
+  }
+}
+
+public interface PathCalculator {
+  public void findPath(String source, String destination);
+}
+
+public class BikePathCalculator implements PathCalculator {
+  public void findPath(String source, String destination) {
+    System.out.println("Bike path from " + source + " to " + destination);
+  }
+}
+
+public class CarPathCalculator implements PathCalculator {
+  public void findPath(String source, String destination) {
+    System.out.println("Car path from " + source + " to " + destination);
+  }
+}
+
+public class WalkPathCalculator implements PathCalculator {
+  public void findPath(String source, String destination) {
+    System.out.println("Walk path from " + source + " to " + destination);
+  }
+}
+
+public class PathCalculatorFactory {
+  public static PathCalculator getPathCalculator(String mode) {
+    if (mode.equals("Car")) {
+      return new CarPathCalculator();
+    } else if (mode.equals("Bike")) {
+      return new BikePathCalculator();
+    } else if (mode.equals("Walk")) {
+      return new WalkPathCalculator();
+    }
+    return null;
+  }
 }
 ```
