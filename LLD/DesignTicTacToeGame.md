@@ -32,8 +32,7 @@
 - Create a Map of Pair(rowNo: int, symbol: Symbol) and store the row wise count
 - Create a Map of Pair(colNo: int, symbol: Symbol) and store the col wise count
 
-After every player's move, check in the map if either row or col count is equal to n.
-- If yes, then that player is the winner
+After every player's move, check in the map if either row or col count is equal to n. If yes, then that player is the winner
 
 - Time Complexity: O(1)
 - Space Complexity: O(N)
