@@ -49,7 +49,24 @@ Ratio has to be 100:1 or 50:1 for it to be just read heavy
 ## Deep Dive
 
 How will I store data
-
+- Create a trie for every search query that has happened
+- Trie Node definitions
+```text
+Node{
+  prefix: str
+  search_count: int
+  top_5_results: list<str>
+  children: Node[26]
+}
+```
+```text
+handleQuery(query){
+- update search_count value for the Trie Node of that prefix
+- for all the ancestors of above node:
+  - see if new count (search_count) is higher than any of existing top5 of that ancestor nodes
+  - then replace ancestor nodes search_count to nodes search_count
+}
+```
 Recency
 - We can give more preferance to recent score.
 - Use concept of time decay
