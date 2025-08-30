@@ -1,82 +1,99 @@
-'''
-Below is a self-contained, single-file implementation of an LFU (Least-Frequently-Used) Cache that also keeps an LRU tie-breaker inside each frequency bucket.
-All operations are O(1) and the code is thread-safe.
-'''
-
 from __future__ import annotations
 import threading
-from collections import defaultdict, OrderedDict
-from typing import Any, Optional, Dict
+import pickle
+import os
+from typing import Optional, Any, Dict
+from pathlib import Path
 
-class LFUCache:
-    """
-    O(1) LFU cache with LRU eviction within the same frequency.
-    Thread-safe.
-    """
+class _Node:
+    """Doubly-linked list node used internally."""
+    __slots__ = ("key", "val", "prev", "next")
+    def __init__(self, key: Any, val: Any):
+        self.key, self.val = key, val
+        self.prev: Optional[_Node] = None
+        self.next: Optional[_Node] = None
 
-    def __init__(self, capacity: int):
+class LRUCache:
+    """
+    Thread-safe, O(1) LRU cache with pluggable persistence.
+    """
+    def __init__(self, capacity: int, persistence_dir: Optional[Path] = None):
         if capacity <= 0:
             raise ValueError("capacity must be positive")
         self.capacity = capacity
-        self._lock = threading.RLock()
+        self._lock = threading.RLock()          # Re-entrant for nested calls
+        self._map: Dict[Any, _Node] = {}        # key -> node
+        self._head = _Node(None, None)          # Dummy head
+        self._tail = _Node(None, None)          # Dummy tail
+        self._head.next = self._tail
+        self._tail.prev = self._head
 
-        # key -> (value, freq)
-        self._kv: Dict[Any, tuple[Any, int]] = {}
+        # Persistence layer
+        self._persistence_dir = persistence_dir
+        if self._persistence_dir:
+            self._persistence_dir.mkdir(parents=True, exist_ok=True)
+            self._load_from_disk()
 
-        # freq -> OrderedDict[key, None]  (insertion order == LRU)
-        self._freq_map: Dict[int, OrderedDict[Any, None]] = defaultdict(OrderedDict)
-
-        self._min_freq = 0   # smallest frequency currently in the cache
-
-    # ---------------- Public API ---------------- #
+    # ------------------- Public API ------------------- #
     def get(self, key: Any) -> Optional[Any]:
         with self._lock:
-            if key not in self._kv:
+            node = self._map.get(key)
+            if node is None:
                 return None
-            value, freq = self._kv[key]
-            self._increment_freq(key, freq)
-            return value
+            self._move_to_front(node)
+            return node.val
 
     def set(self, key: Any, value: Any) -> None:
         with self._lock:
-            if key in self._kv:
-                # Update existing key
-                old_val, freq = self._kv[key]
-                self._kv[key] = (value, freq)
-                self._increment_freq(key, freq)
-                return
+            node = self._map.get(key)
+            if node:
+                node.val = value
+                self._move_to_front(node)
+            else:
+                if len(self._map) >= self.capacity:
+                    self._evict_lru()
+                new_node = _Node(key, value)
+                self._map[key] = new_node
+                self._add_to_front(new_node)
+                self._persist()
 
-            if len(self._kv) >= self.capacity:
-                # Evict LFU (and LRU among that frequency)
-                lfu_bucket = self._freq_map[self._min_freq]
-                lru_key, _ = lfu_bucket.popitem(last=False)  # first = oldest
-                if not lfu_bucket:
-                    del self._freq_map[self._min_freq]
-                del self._kv[lru_key]
+    # ------------------- Internals ------------------- #
+    def _move_to_front(self, node: _Node) -> None:
+        self._remove(node)
+        self._add_to_front(node)
 
-            # Insert new key with frequency 1
-            self._kv[key] = (value, 1)
-            self._freq_map[1][key] = None
-            self._min_freq = 1
+    def _add_to_front(self, node: _Node) -> None:
+        node.prev = self._head
+        node.next = self._head.next
+        self._head.next.prev = node
+        self._head.next = node
 
-    # ---------------- Internal helpers ---------------- #
-    def _increment_freq(self, key: Any, old_freq: int) -> None:
-        # Remove from old bucket
-        bucket = self._freq_map[old_freq]
-        del bucket[key]
-        if not bucket:
-            del self._freq_map[old_freq]
-            if self._min_freq == old_freq:
-                self._min_freq += 1
+    def _remove(self, node: _Node) -> None:
+        node.prev.next = node.next
+        node.next.prev = node.prev
 
-        # Add to new bucket
-        new_freq = old_freq + 1
-        self._kv[key] = (self._kv[key][0], new_freq)
-        self._freq_map[new_freq][key] = None
+    def _evict_lru(self) -> None:
+        lru = self._tail.prev
+        self._remove(lru)
+        del self._map[lru.key]
+        self._persist()
 
-    # ---------------- Diagnostics ---------------- #
-    def debug(self) -> None:
-        with self._lock:
-            print("KV:", self._kv)
-            print("Freq map:", {k: list(v.keys()) for k, v in self._freq_map.items()})
-            print("min_freq:", self._min_freq)
+    # ------------------- Persistence ------------------- #
+    def _persist(self) -> None:
+        if not self._persistence_dir:
+            return
+        snapshot = {node.key: node.val for node in self._map.values()}
+        tmp = self._persistence_dir / "cache.tmp"
+        final = self._persistence_dir / "cache.pkl"
+        with tmp.open("wb") as f:
+            pickle.dump(snapshot, f, protocol=pickle.HIGHEST_PROTOCOL)
+        tmp.replace(final)  # Atomic on POSIX
+
+    def _load_from_disk(self) -> None:
+        final = self._persistence_dir / "cache.pkl"
+        if not final.exists():
+            return
+        with final.open("rb") as f:
+            snapshot: Dict[Any, Any] = pickle.load(f)
+        for k, v in snapshot.items():
+            self.set(k, v)  # Re-uses existing eviction logic
