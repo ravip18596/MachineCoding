@@ -1,0 +1,68 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam Handwritten true
+
+' ---------------- Core ----------------
+class LRUCache {
+    +capacity : int
+    +get(key) : Any | None
+    +set(key, value) : None
+    -_lock : RLock
+    -_map : dict[key, _Node]
+    -_head, _tail : _Node
+    -_persist()
+    -_load_from_disk()
+    -_move_to_front(node)
+    -_add_to_front(node)
+    -_remove(node)
+    -_evict_lru()
+}
+
+class _Node {
+    +key  : Any
+    +val  : Any
+    +prev : _Node | None
+    +next : _Node | None
+}
+
+' ---------------- Distributed gRPC ----------------
+package "Distributed Layer" {
+    class CacheServicer <<(S,#FFAAAA) service>> {
+        +Get(request) : GetResponse
+        +Set(request) : SetResponse
+        -cache : LRUCache
+    }
+
+    interface cache_pb2_grpc.Cache <<(I,#FFAAAA) gRPC stub>>
+}
+
+' ---------------- Relationships ----------------
+LRUCache *-- _Node : contains >
+
+CacheServicer o-- LRUCache : uses >
+CacheServicer ..|> cache_pb2_grpc.Cache : implements
+
+@enduml
+
+
++----------------+             +------------------+
+|   LRUCache     |<>---------->|     _Node        |
++----------------+             +------------------+
+| +capacity      |             | +key             |
+| +get(key)      |             | +val             |
+| +set(key,val)  |             | +prev            |
+| -_persist()    |             | +next            |
++----------------+             +------------------+
+         ^
+         | uses
++------------------+
+| CacheServicer    |
++------------------+
+| +Get(request)    |
+| +Set(request)    |
++------------------+
+         |
+         | implements
++------------------+
+| cache_pb2_grpc.Cache |
++------------------+
