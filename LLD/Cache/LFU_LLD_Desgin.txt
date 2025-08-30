@@ -1,0 +1,31 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam Handwritten true
+
+class LFUCache {
+    +capacity : int
+    +get(key) : Any|None
+    +set(key, value) : None
+    -_lock : RLock
+    -_kv : dict[key, (value, freq)]
+    -_freq_map : dict[int, OrderedDict]
+    -_min_freq : int
+    -_increment_freq(key, old_freq)
+}
+
+class OrderedDict {
+    +keys() : list
+    +popitem(last=False)
+}
+
+LFUCache *-- "_kv" : map >
+LFUCache *-- "_freq_map" : freq → bucket >
+LFUCache o-- "_lock" : uses >
+"_freq_map" o-- OrderedDict : bucket >
+
+note right of LFUCache
+  _freq_map keeps an OrderedDict
+  per frequency for LRU tie-break.
+end note
+
+@enduml
