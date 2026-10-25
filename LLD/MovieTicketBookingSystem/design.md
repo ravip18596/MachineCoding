@@ -22,3 +22,5 @@
 3. [checkout and payment](payment.py)
 4. [booking cancellation and refund](refund.py)
 
+# Class Diagram for 2,3,4
+![class_diagram.png](class_diagram.png)

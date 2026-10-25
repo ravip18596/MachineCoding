@@ -1,6 +1,6 @@
 from abc import ABC,abstractmethod
 from typing import List
-from payment import PaymentReceipt, BookingOrder
+from LLD.MovieTicketBookingSystem.payment import PaymentReceipt, BookingOrder
 
 # This flow is when booing is confirmed but customer wants cancellation
 
