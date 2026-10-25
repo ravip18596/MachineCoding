@@ -1,0 +1,27 @@
+The architectural patterns established in this movie ticketing template (2-phase commit, TTL-based inventory locking, pluggable payment strategies, and state machines) form the exact blueprint for almost any transactional resource-allocation system.
+
+By simply swapping out the core Seat entity for a different resource, you can adapt this code to solve the following Staff-level LLD interview problems:
+
+1. Direct Equivalents (Spatial Inventory)
+
+    Airline Ticket Reservation: SeatLockManager becomes identical. The complexity shifts slightly to handling flight segments, connecting flights, and dynamic pricing based on seat availability.
+
+    Concert / Stadium Ticketing (Ticketmaster): Exact same flow, but the lock manager usually requires a waiting room queue (Fairness/FIFO) before users are even allowed to execute the hold_seats phase.
+
+    Restaurant Table Booking: Seat becomes Table. The lock manager must now handle time overlaps (e.g., locking Table 4 from 7:00 PM to 9:00 PM) rather than just locking it for a single "Show."
+
+2. Time-Bound Resource Allocation
+
+    Hotel Booking System: Seat becomes Room. Show becomes a DateRange. The locking mechanism must validate that a room is available continuously across the requested check-in and check-out dates before applying the TTL hold.
+
+    Vehicle Rental System (Zoomcar / Hertz): Seat becomes Vehicle. The state machine tracks AVAILABLE -> RESERVED -> IN_TRANSIT -> MAINTENANCE.
+
+3. E-Commerce & Retail
+
+    Flash Sale / Limited Inventory Checkout: Seat becomes ProductItem (e.g., iPhone 15 Pro). When a user adds it to their cart, you apply a 15-minute TTL hold. If they don't pay via the PaymentStrategy, the item is released back to the global inventory pool.
+
+    Food Delivery Platform (Swiggy / DoorDash): Seat becomes Order. The 2-phase commit is used to lock the restaurant's kitchen capacity and assign a delivery driver before confirming the payment.
+
+4. On-Demand Matching
+
+    Cab Booking (Uber / Ola): Seat becomes Driver. When a user requests a ride, the system places a 30-second TTL lock on a nearby driver to offer them the ride. If they decline (or TTL expires), the lock is released, and the system attempts to lock the next nearest driver
