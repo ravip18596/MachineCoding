@@ -196,6 +196,7 @@ class SeatBookingManager:
                 seat.locked_by = None
                 seat.is_booked = False
                 seat.expire_at = 0.0
+                seat.transaction_id = ''
 
             return True
 
