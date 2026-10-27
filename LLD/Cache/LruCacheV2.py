@@ -19,46 +19,70 @@ class Node:
 class LRUCache:
     def __init__(self, cap):
         self.cap = cap
-        self._head = Node(0, 0)
-        self._tail = Node(0, 0)
-        self._hashmap = {}
-        self._head.next = self._tail.prev
+        self._head = Node(0, "")
+        self._tail = Node(0, "")
+        self._hashmap: Dict[int, Node] = {}
+        self._head.next = self._tail
+        self._tail.prev = self._head
         self._rlock = RLock()
+
+    def __str__(self):
+        tmp = self._head
+        res = []
+        while tmp:
+            res.append(f'({tmp.key}, {tmp.value}) ')
+            tmp = tmp.next
+        return " -> ".join(res)
+
+    def _remove_node(self, node: Node):
+        prev = node.prev
+        next = node.next
+        prev.next = next
+        next.prev = prev
+
+    def _add_to_head(self, node: Node):
+        """ Insert node strictly right of dummy head node"""
+        tmp = self._head.next
+        self._head.next = node
+        node.prev = self._head
+        node.next = tmp
+        tmp.prev = node
 
     def put(self, key: int, val: str) -> None:
         with self._rlock:
-            if len(self._hashmap) >= self.cap:
+            # check in hashmap if key exists
+            if key in self._hashmap:
+                node = self._hashmap[key]
+                node.value = val
+                self._remove_node(node)
+                self._add_to_head(node)
+            else:
+                # create new node
+                node = Node(key=key, val=val)
+                # store node in hashmap
+                self._hashmap[key] = node
+                # append node to head's right
+                self._add_to_head(node)
+
+
+            # check capacity after adding new item
+            if len(self._hashmap) > self.cap:
                 # start evict procedure -> remove node left of tail
                 # remove node from hashmap
                 node_to_be_deleted = self._tail.prev
-                self._hashmap.pop(node_to_be_deleted.key)
-                node_to_be_deleted._next = None
-                node_to_be_deleted._prev = None
-
-
-            node = Node(key=key, val=val)
-            # append node to head's right
-            self._head.next = node
-            node.prev = self._head
-            node.next = self._tail.prev
-
-            # store node in hashmap
-            self._hashmap[key] = node
+                self._remove_node(node_to_be_deleted)
 
 
     def get(self, key: int) -> str:
         with self._rlock:
             # check in hashmap if key exists
-            if key in self._hashmap:
-                node = self._hashmap[key]
-            else:
+            if key not in self._hashmap:
                 raise ValueError(f"Key: {key} does not exist")
 
             # make the node with key as new head
             node = self._hashmap[key]
-            tmp = self._head.next
-            self._head.next = node.prev
-            node.next = tmp.prev
+            self._remove_node(node)
+            self._add_to_head(node)
 
             return node.value
 
