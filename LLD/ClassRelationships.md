@@ -17,9 +17,11 @@ There are two type of class relationships among classes
    - weak association
    - contained entity can exist independently
    - <b>container class</b> < >----- <b>contained class</b>
-   - example: Order < >----- Customer (Customer can exist without an Order)
+   - example: Order <>----- Customer (Customer can exist without an Order)
+   - example: Movie <>------ Show (Show can exist without a Movie)
 2. Composition
    - strong association
    - contained entity cannot exist independently
    - <b>container class</b> <->----- <b>contained class</b>
    - example: Post <->----- Comment (Comment cannot exist without a Post)
+   - example: Show <->----- MovieCatalog (MovieCatalog cannot exists independently)

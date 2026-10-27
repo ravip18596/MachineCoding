@@ -71,6 +71,7 @@ class LRUCache:
                 # remove node from hashmap
                 node_to_be_deleted = self._tail.prev
                 self._remove_node(node_to_be_deleted)
+                self._hashmap.pop(node_to_be_deleted.key)
 
 
     def get(self, key: int) -> str:

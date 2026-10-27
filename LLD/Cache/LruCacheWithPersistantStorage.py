@@ -47,7 +47,7 @@ class LRUCache:
     def __str__(self):
         tmp = self._head
         res = []
-        while tmp:
+        while tmp and tmp!=self._tail:
             res.append(f'({tmp.key}, {tmp.value}) ')
             tmp = tmp.next
         return " -> ".join(res)
@@ -72,13 +72,18 @@ class LRUCache:
             if key in self._hashmap:
                 node = self._hashmap[key]
                 node.value = val
+                # persist in storage as well
+                val = self._db.load(key)
+                print(f"Retrieved value from db storage: {val}")
+
                 self._remove_node(node)
                 self._add_to_head(node)
             else:
                 # create new node
                 node = Node(key=key, val=val)
-                # store node in hashmap
+                # store node in hashmap and storage
                 self._hashmap[key] = node
+                self._db.save(key, val)
                 # append node to head's right
                 self._add_to_head(node)
 
@@ -89,16 +94,21 @@ class LRUCache:
                 # remove node from hashmap
                 node_to_be_deleted = self._tail.prev
                 self._remove_node(node_to_be_deleted)
+                self._hashmap.pop(node_to_be_deleted.key)
 
 
     def get(self, key: int) -> str:
         with self._rlock:
             # check in hashmap if key exists
             if key not in self._hashmap:
-                raise ValueError(f"Key: {key} does not exist")
+                # check in storage
+                val = self._db.load(key)
+                self.put(key, val)
+                return val
 
             # make the node with key as new head
             node = self._hashmap[key]
+
             self._remove_node(node)
             self._add_to_head(node)
 
@@ -126,3 +136,13 @@ if __name__ == '__main__':
     cache = LRUCache(2, db=db)
     cache.put(1, "a")
     cache.put(2, "b")
+    print(f"Memory: {cache}")
+
+    print("\n Start eviction")
+    cache.put(3,"c") # Remove 1 from memory but persist in storage
+    print(f"Memory: {cache}")
+
+    print("Retrieving 1 from db and stores it back in memory and evict 2")
+    val = cache.get(1)
+    print(f"Retrieved val: {val}")
+    print(f"Memory: {cache}")
