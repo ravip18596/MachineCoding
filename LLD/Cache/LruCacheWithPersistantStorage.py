@@ -18,9 +18,11 @@ class PersistentStorage:
     def save(self, key: int, val:str) -> None:
         pass
 
+    @abstractmethod
     def load(self, key: int) -> str:
         pass
 
+    @abstractmethod
     def delete(self, key: int) -> None:
         pass
 
