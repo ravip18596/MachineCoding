@@ -1,79 +1,22 @@
-import threading
-from abc import ABC, abstractmethod
-from collections import OrderedDict, defaultdict
-from typing import Dict, Tuple
+"""
+ Here is how the data structures interact:
+ 1. key_map (Hashmap): Maps key -> Node.
+ 2. This gives us $O(1)$ access to any node.freq_map (Hashmap): Maps frequency -> Doubly Linked List.
+ 3. Every time a node's frequency increases, we move it from the DLL at freq to the DLL at freq + 1.min_freq (Integer):
 
-# defining interface using strategy pattern
-class PersistentStorage(ABC):
-    @abstractmethod
-    def save(self, key: int, val: str): pass
+Tracks the lowest frequency currently in the cache so we can find the eviction candidate in O(1) time without scanning freq_map.
+"""
 
-    @abstractmethod
-    def load(self, key: int): pass
+"""
+LFU Internal Structure
 
-    @abstractmethod
-    def delete(self, key: int): pass
+When multiple items have the same frequency, the DLL at that frequency acts as an LRU cache to break the tie.
 
-class LFUCache:
-    def __init__(self, cap:int, db: PersistentStorage):
-        self.cap = cap
-        self._db = db
-        self._min_freq = 0
-
-        self._lock = threading.RLock
-        # key -> (value, freq)
-        self._key_map: Dict[int, Tuple[str, int]] = {}
-        self._freq_map: Dict[int, OrderedDict] = defaultdict(OrderedDict)
-
-    def get(self, key:int) -> str:
-        with self._lock:
-            # cache miss
-            if key not in self._key_map:
-                # load from disk
-                val = self._db.load(key)
-                self._put_internal(key, val, save_to_db=False)
-                return val
-
-            # cache hit: Retrieve data and promote frequency
-            val, freq = self._key_map[key]
-
-            # Remove key from its frequency bucket
-            self._freq_map[freq].pop(key)
-
-            # Update min_freq if lowest bucket is empty
-            if self._min_freq == freq and self._freq_map[key] is None:
-                self._min_freq += 1
-
-            self._key_map[key] = (val, freq+1)
-            # update key to new freq bucket
-            self._freq_map[freq+1][key] = None
-            return val
-
-    def _put_internal(self, key:int, val: str, save_to_db: bool):
-        if self.cap == 0:
-            return
-        with self._lock:
-            if save_to_db:
-                self._db.save(key, val)
-
-    def put(self, key:int, val: str):
-        self._put_internal(key, val, save_to_db=True)
-
-if __name__ == '__main__':
-    class MockPersistentDB(PersistentStorage):
-        def __init__(self):
-            self.file = {}
-
-        def save(self, key: int, val: str):
-            print(f"saving {key}:{val} in disk")
-            self.file[key] = val
-
-        def load(self, key: int) -> str:
-            return self.file.get(key)
-
-        def delete(self, key: int):
-            if key in self.file:
-                del self.file[key]
-
-    db = MockPersistentDB()
+key_map                 freq_map
+[Key: 1] -> Node(1)     [Freq: 1] -> [Head] <-> Node(3) <-> [Tail]
+[Key: 2] -> Node(2)     
+[Key: 3] -> Node(3)     [Freq: 2] -> [Head] <-> Node(1) <-> [Tail]
+                        
+min_freq = 1            [Freq: 3] -> [Head] <-> Node(2) <-> [Tail]
+"""
 
