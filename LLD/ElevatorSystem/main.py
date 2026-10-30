@@ -1,7 +1,8 @@
 """
 Design Patterns Used:
-1. Strategy Design Pattern
-2. Facade Design Pattern
+1. Facade Pattern: ElevatorSystem acts as the single high-level unified entry point for external clients (request_ride, step), encapsulating internal car state management and dispatch routing.
+2. Strategy Pattern: ElevatorSystem maintains an aggregation reference (o--) to the abstract interface Strategy, realized by ZoneDispatchStrategy, making dispatch algorithms swappable at runtime without altering core elevator mechanisms.
+3. Composition: ElevatorSystem has a strong ownership lifecycle (*--) over multiple ElevatorCar instances.
 
 How the Components Interact Visually
     Zone Partitioning:
@@ -19,15 +20,15 @@ Trade-offs to Highlight in an Interview
     Pros: Eliminates the "stopping on every single floor" issue in high buildings; prevents cars from traversing the entire shaft height needlessly; minimizes round-trip transit times.
     Cons: Reduced redundancy—if Car 1 and Car 2 are undergoing maintenance, the Low-Rise zone loses service
 """
-from enum import Enum
+from enum import Enum, auto
 from abc import ABC, abstractmethod
 from typing import Dict, List, Set
 import heapq
 
 class Direction(Enum):
-    UP = 1
-    DOWN = -1
-    IDLE = 0
+    UP = auto()
+    DOWN = auto()
+    IDLE = auto()
 
 class ElevatorCar:
     def __init__(self, car_no:int):
