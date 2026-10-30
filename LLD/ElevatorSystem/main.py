@@ -153,4 +153,13 @@ if __name__ == '__main__':
     print(f"{assigned_car} no elevator car assigned for floor_no = 4 to 9")
 
     assigned_car = elevator_system.request_ride(source_floor=1, destination_floor=15)
-    print(f"{assigned_car} no elevator car assigned for floor_no = 19 to 12")
+    print(f"{assigned_car} no elevator car assigned for floor_no = 1 to 15")
+
+    assigned_car = elevator_system.request_ride(source_floor=18, destination_floor=12)
+    print(f"{assigned_car} no elevator car assigned for floor_no = 18 to 12")
+
+    assigned_car = elevator_system.request_ride(source_floor=11, destination_floor=16)
+    print(f"{assigned_car} no elevator car assigned for floor_no = 11 to 16")
+
+    assigned_car = elevator_system.request_ride(source_floor=2, destination_floor=8)
+    print(f"{assigned_car} no elevator car assigned for floor_no = 2 to 8")
