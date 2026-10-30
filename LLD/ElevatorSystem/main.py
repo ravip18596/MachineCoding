@@ -37,7 +37,19 @@ class ElevatorCar:
         self.up_floors: List[int] = []
         self.down_floors: List[int] = []
 
-    def add_stop(self, floor_no: int, direction: Direction):pass
+    def add_stop(self, target_floor: int):
+        if self.current_floor == target_floor:
+            return
+        elif target_floor > self.current_floor:
+            # to prevent duplicates
+            if target_floor not in self.up_floors:
+                heapq.heappush(self.up_floors, target_floor)
+        elif target_floor < self.current_floor:
+            if -target_floor not in self.down_floors:
+                heapq.heappush(self.down_floors, -target_floor)
+
+        if self.direction == Direction.IDLE:
+             self.direction = Direction.UP if target_floor > self.current_floor else Direction.DOWN
 
     def step(self):
         if self.direction == Direction.UP:
@@ -47,6 +59,7 @@ class ElevatorCar:
                     self.direction = Direction.DOWN if len(self.down_floors) > 0 else Direction.IDLE
             elif len(self.up_floors) == 0:
                 self.direction = Direction.DOWN
+                self.step()
 
         elif self.direction == Direction.DOWN:
             if len(self.down_floors) > 0:
@@ -56,6 +69,11 @@ class ElevatorCar:
             elif len(self.down_floors) == 0:
                 # if no requests pending in up direction then simply change direction
                 self.direction = Direction.UP
+                self.step()
+
+    @property
+    def pending_stop_counts(self):
+        return len(self.up_floors) + len(self.down_floors)
 
 # =====================================================================
 # Strategy Pattern: Zone-Based Dispatching
@@ -64,7 +82,7 @@ class ElevatorCar:
 # strategy is to help to route which elevator car among cars is selected.
 class Strategy(ABC):
     @abstractmethod
-    def select_cars(self, cars: List[ElevatorCar], pickup_floor: int, direction: Direction) -> ElevatorCar:
+    def select_car(self, cars: List[ElevatorCar], source_floor: int, destination_floor: int) -> ElevatorCar:
         pass
 
 class ZoneDispatchStrategy(Strategy):
@@ -72,8 +90,28 @@ class ZoneDispatchStrategy(Strategy):
         self.zone_config = zone_config
         self.floor_config = floor_config
 
-    def select_cars(self, cars: List[ElevatorCar], pickup_floor: int, direction: Direction) -> ElevatorCar:
-        pass
+    def _resolve_zone(self, source_floor: int, destination_floor: int):
+        if source_floor == destination_floor:
+            raise ValueError("Source and destination floors cannot be identical")
+
+        for zone_name, floors in self.floor_config.items():
+            if source_floor in floors and destination_floor in floors:
+                return zone_name
+
+        raise ValueError(f"No direct elevator exists between {source_floor} and {destination_floor}")
+
+    def select_car(self, cars: List[ElevatorCar], source_floor: int, destination_floor: int) -> ElevatorCar:
+        target_zone = self._resolve_zone(source_floor, destination_floor)
+        eligible_car_ids = set(self.zone_config[target_zone])
+
+        candidate_cars = [car for car in cars if car.car_no in eligible_car_ids]
+
+        # Pick car with minimum stop count, tie-break by distance to pickup floor
+        return min(
+            candidate_cars,
+            key= lambda car: (car.pending_stop_counts, abs(car.current_floor-source_floor))
+        )
+
 
 # =====================================================================
 # Facade Pattern: System Controller
@@ -83,10 +121,11 @@ class ElevatorSystem:
         self.cars = [ElevatorCar(i+1) for i in range(num_cars)]
         self.strategy = strategy
 
-    def request_pickup(self, floor_no: int, direction: Direction) -> int:
+    def request_ride(self, source_floor: int, destination_floor: int) -> int:
         """ elevator lobby """
-        elevator_car_assigned = self.strategy.select_cars(self.cars, floor_no, direction)
-        elevator_car_assigned.add_stop(floor_no, direction)
+        elevator_car_assigned = self.strategy.select_car(self.cars, source_floor, destination_floor)
+        elevator_car_assigned.add_stop(source_floor)
+        elevator_car_assigned.add_stop(destination_floor)
         return elevator_car_assigned.car_no
 
     def step(self) -> None:
@@ -109,8 +148,8 @@ if __name__ == '__main__':
     strategy = ZoneDispatchStrategy(zones_config, floor_config)
     elevator_system = ElevatorSystem(num_cars=4, strategy=strategy)
 
-    assigned_car = elevator_system.request_pickup(floor_no = 15, direction=Direction.DOWN)
-    print(f"{assigned_car} no elevator car assigned for floor_no = 15 DOWN")
+    assigned_car = elevator_system.request_ride(source_floor=1, destination_floor=9)
+    print(f"{assigned_car} no elevator car assigned for floor_no = 4 to 9")
 
-    assigned_car = elevator_system.request_pickup(floor_no = 4, direction=Direction.UP)
-    print(f"{assigned_car} no elevator car assigned for floor_no = 4 UP")
+    assigned_car = elevator_system.request_ride(source_floor=1, destination_floor=15)
+    print(f"{assigned_car} no elevator car assigned for floor_no = 19 to 12")
