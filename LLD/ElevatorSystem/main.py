@@ -24,19 +24,20 @@ from enum import Enum, auto
 from abc import ABC, abstractmethod
 from typing import Dict, List, Set
 import heapq
+from dataclasses import dataclass, field
 
 class Direction(Enum):
     UP = auto()
     DOWN = auto()
     IDLE = auto()
 
+@dataclass
 class ElevatorCar:
-    def __init__(self, car_no:int):
-        self.car_no = car_no
-        self.direction: Direction = Direction.IDLE
-        self.current_floor: int = 1
-        self.up_floors: List[int] = []
-        self.down_floors: List[int] = []
+    car_no: int
+    current_floor: int = 1
+    direction: Direction = Direction.IDLE
+    up_floors: List[int] = field(default_factory=list)
+    down_floors: List[int] = field(default_factory=list)
 
     def add_stop(self, target_floor: int):
         if target_floor == self.current_floor:
