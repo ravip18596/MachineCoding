@@ -39,37 +39,48 @@ class ElevatorCar:
         self.down_floors: List[int] = []
 
     def add_stop(self, target_floor: int):
-        if self.current_floor == target_floor:
+        if target_floor == self.current_floor:
             return
-        elif target_floor > self.current_floor:
-            # to prevent duplicates
+
+        if target_floor > self.current_floor:
+            # means going up
             if target_floor not in self.up_floors:
                 heapq.heappush(self.up_floors, target_floor)
+                self.direction = Direction.UP
         elif target_floor < self.current_floor:
+            # means going down
             if -target_floor not in self.down_floors:
+                # We are just queuing requests which will be serviced later on
                 heapq.heappush(self.down_floors, -target_floor)
+                # No need to set this self.direction = Direction.DOWN because we do not want elevator car to stop
+                # serving its current direction vector
 
         if self.direction == Direction.IDLE:
-             self.direction = Direction.UP if target_floor > self.current_floor else Direction.DOWN
+            if target_floor > self.current_floor:
+                self.direction = Direction.UP
+            else:
+                self.direction = Direction.DOWN
 
+    # this method implements LOOK algorithm
     def step(self):
         if self.direction == Direction.UP:
             if len(self.up_floors) > 0:
                 self.current_floor = heapq.heappop(self.up_floors)
                 if len(self.up_floors) == 0:
+                    # meaning all my requests have been fulfilled in up direction then change direction
                     self.direction = Direction.DOWN if len(self.down_floors) > 0 else Direction.IDLE
             elif len(self.up_floors) == 0:
-                self.direction = Direction.DOWN
+                # meaning all my requests have been fulfilled in up direction then change direction
+                self.direction = Direction.DOWN if len(self.down_floors) > 0 else Direction.IDLE
                 self.step()
-
         elif self.direction == Direction.DOWN:
             if len(self.down_floors) > 0:
                 self.current_floor = -heapq.heappop(self.down_floors)
                 if len(self.down_floors) == 0:
                     self.direction = Direction.UP if len(self.up_floors) > 0 else Direction.IDLE
             elif len(self.down_floors) == 0:
-                # if no requests pending in up direction then simply change direction
-                self.direction = Direction.UP
+                # meaning all my requests in down direction is fulfilled, lets change direction
+                self.direction = Direction.UP if len(self.up_floors) > 0 else Direction.IDLE
                 self.step()
 
     @property
