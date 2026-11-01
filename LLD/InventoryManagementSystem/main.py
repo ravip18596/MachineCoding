@@ -26,31 +26,31 @@ class PaymentReceipt():
 # Strategy Design Pattern
 class PaymentStrategy(ABC):
     @abstractmethod
-    def pay(self, txn_id: str, amt: float) -> PaymentReceipt:
+    def pay(self, amt: float) -> PaymentReceipt:
         pass
 
     @abstractmethod
-    def refund(self, txn_id: str, amt: float) -> PaymentReceipt:
+    def refund(self, amt: float) -> PaymentReceipt:
         pass
 
 @dataclass
 class CreditCardPaymentStrategy(PaymentStrategy):
     cc_no: str
 
-    def pay(self, txn_id: str, amt: float) -> PaymentReceipt:
+    def pay(self, amt: float) -> PaymentReceipt:
         print(f"[Payment Gateway] successfully paid by user. amt: {amt}")
         return PaymentReceipt(
             id=uuid.uuid4().hex,
-            txn_id=txn_id,
+            txn_id=uuid.uuid4().hex,
             amt=amt,
             payment_status=PaymentState.SUCCESS
         )
 
-    def refund(self, txn_id: str, amt: float) -> PaymentReceipt:
+    def refund(self, amt: float) -> PaymentReceipt:
         print(f"[Payment Gateway] successfully refund back to the user. amt: {amt}")
         return PaymentReceipt(
             id=uuid.uuid4().hex,
-            txn_id=txn_id,
+            txn_id=uuid.uuid4().hex,
             amt=amt,
             payment_status=PaymentState.REFUND_SUCCESS
         )
@@ -61,12 +61,12 @@ class UPIPaymentStrategy(PaymentStrategy):
     vpa: str
     simulate_failure: bool = False
 
-    def pay(self, txn_id: str, amt: float) -> PaymentReceipt:
+    def pay(self, amt: float) -> PaymentReceipt:
         if self.simulate_failure:
             print(f"[Payment Gateway] payment failed. amt: {amt} having txn_id = {txn_id}")
             return PaymentReceipt(
                 id=uuid.uuid4().hex,
-                txn_id=txn_id,
+                txn_id=uuid.uuid4().hex,
                 amt=amt,
                 payment_status=PaymentState.FAIL
             )
@@ -74,25 +74,25 @@ class UPIPaymentStrategy(PaymentStrategy):
         print(f"[Payment Gateway] successfully paid by user. amt: {amt}")
         return PaymentReceipt(
             id=uuid.uuid4().hex,
-            txn_id=txn_id,
+            txn_id=uuid.uuid4().hex,
             amt=amt,
             payment_status=PaymentState.SUCCESS
         )
 
-    def refund(self, txn_id: str, amt: float) -> PaymentReceipt:
+    def refund(self, amt: float) -> PaymentReceipt:
         if self.simulate_failure:
-            print(f"[Payment Gateway] payment failed. amt: {amt} having txn_id = {txn_id}")
+            print(f"[Payment Gateway] payment failed. amt: {amt}")
             return PaymentReceipt(
                 id=uuid.uuid4().hex,
-                txn_id=txn_id,
+                txn_id=uuid.uuid4().hex,
                 amt=amt,
                 payment_status=PaymentState.FAIL
             )
 
-        print(f"[Payment Gateway] successfully refunded amt: {amt} to the user having txn_id = {txn_id}")
+        print(f"[Payment Gateway] successfully refunded amt: {amt} to the user")
         return PaymentReceipt(
             id=uuid.uuid4().hex,
-            txn_id=txn_id,
+            txn_id=uuid.uuid4().hex,
             amt=amt,
             payment_status=PaymentState.REFUND_FAIL
         )
@@ -204,7 +204,7 @@ class BookingService:
     inventory_booking_manager: InventoryBookingManager
     price_per_inventory: float
 
-    def checkout(self, order_id: str, user_id: str, txn_id: str, inventory_ids: List[str], payment_strategy: PaymentStrategy) -> Optional[BookingOrder]:
+    def checkout(self, order_id: str, user_id: str, inventory_ids: List[str], payment_strategy: PaymentStrategy) -> Optional[BookingOrder]:
         """ Orchestrate Lock -> Pay -> Confirm (or rollback on failure)"""
         print(f"[Checkout] Init checkout for {order_id} {user_id}")
         hold_status = self.inventory_booking_manager.hold_inventory(user_id, inventory_ids)
@@ -214,9 +214,10 @@ class BookingService:
         print(f"[Checkout] Proceed to Payment")
 
         amount = self.price_per_inventory * len(inventory_ids)
-        receipt = payment_strategy.pay(txn_id=txn_id, amt=amount)
+        receipt = payment_strategy.pay(amt=amount)
+        txn_id = receipt.txn_id
         if receipt.payment_status.SUCCESS:
-            confirmed = self.inventory_booking_manager.book_inventory(user_id, inventory_ids, txn_id=txn_id)
+            confirmed = self.inventory_booking_manager.book_inventory(user_id, inventory_ids, txn_id=receipt.txn_id)
             if confirmed:
                 order =  BookingOrder(
                     order_id=order_id,
@@ -234,10 +235,10 @@ class BookingService:
             self.inventory_booking_manager.release_hold_on_inventory(user_id=user_id, requested_inventories=inventory_ids)
             return None
 
-    def cancel_booking(self, order: BookingOrder, txn_id: str, payment_strategy: PaymentStrategy):
+    def cancel_booking(self, order: BookingOrder, payment_strategy: PaymentStrategy):
         print("[cancel_booking] Init order cancellation")
         # Step 1: Refund the amount to the customer
-        refund_pay_receipt = payment_strategy.refund(txn_id=txn_id, amt=order.amount)
+        refund_pay_receipt = payment_strategy.refund(amt=order.amount)
         if refund_pay_receipt.payment_status == PaymentState.REFUND_SUCCESS:
             print(f"[cancel_booking] Refund of amount Rs. {order.amount} is successful")
         else:
@@ -261,7 +262,6 @@ if __name__ == '__main__':
     order1 = inventory_service.checkout(
         order_id="o1",
         user_id="Ravi",
-        txn_id='txn_12',
         inventory_ids=["I1", "I2"],
         payment_strategy=cc_payment_strategy
     )
@@ -269,7 +269,6 @@ if __name__ == '__main__':
     order2 = inventory_service.checkout(
         order_id="o2",
         user_id="Sandhya",
-        txn_id='txn_23',
         inventory_ids=["I2", "I3"],
         payment_strategy=upi_payment_strategy
     )
@@ -277,13 +276,11 @@ if __name__ == '__main__':
     order3 = inventory_service.checkout(
         order_id="o3",
         user_id="Soni",
-        txn_id='txn_13',
         inventory_ids=["I1","I3"],
         payment_strategy=upi_payment_fail_strategy
     )
 
     inventory_service.cancel_booking(
         order=order1,
-        txn_id='txn_21',
         payment_strategy=cc_payment_strategy
     )
