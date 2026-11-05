@@ -21,20 +21,18 @@ class ElevatorCar:
     down_floors: List[int] = field(default_factory=list)
 
     def add_stop(self, target_floor: int):
-        # if target_floor == self.current_floor:
-        #     print(f"Incorrect target_floor: {target_floor} provided")
-        #     return
-
         if target_floor > self.current_floor:
             if self.direction == Direction.UP and target_floor not in self.up_floors:
                 heapq.heappush(self.up_floors, target_floor)
             elif self.direction == Direction.IDLE:
+                heapq.heappush(self.up_floors, target_floor)
                 self.direction = Direction.UP
 
         elif target_floor < self.current_floor:
             if self.direction == Direction.DOWN and -target_floor not in self.down_floors:
                 heapq.heappush(self.down_floors, -target_floor)
             elif self.direction == Direction.IDLE:
+                heapq.heappush(self.down_floors, -target_floor)
                 self.direction = Direction.DOWN
 
     # implements LOOK algorithm
@@ -106,7 +104,7 @@ class ElevatorManager:
         assigned_car = self.strategy.select_elevator_car(cars=self.elevator_cars, source=source, destination=destination)
         assigned_car.add_stop(source)
         assigned_car.add_stop(destination)
-        print(f"[Elevator Manager]: assigned elevator car is {assigned_car.car_no}")
+        print(f"[Elevator Manager]: assigned elevator car is {assigned_car}")
         print(f"[Elevator Manager]: added source:{source}, destination:{destination} to assigned car\n")
         self.step()
 
@@ -131,6 +129,16 @@ if __name__ == '__main__':
     elevator_manager = ElevatorManager(elevator_cars=[1,2,3,4], strategy=zone_dispatch)
 
     elevator_manager.request_ride(source=1, destination=9)
+    elevator_manager.step()
+
+    elevator_manager.request_ride(source=4, destination=8)
+    elevator_manager.step()
+
     elevator_manager.request_ride(source=1, destination=15)
+    elevator_manager.step()
+
     elevator_manager.request_ride(source=13, destination=1)
+    elevator_manager.step()
+
     elevator_manager.request_ride(source=18, destination=1)
+    elevator_manager.step()
