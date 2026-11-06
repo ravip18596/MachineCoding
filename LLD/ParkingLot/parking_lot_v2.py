@@ -88,16 +88,27 @@ class UPIPaymentStrategy(PaymentStrategy):
 # Facade Design Pattern
 # provides veil in back becoming an interface
 class SlotBookingService:
-    def __init__(self, parking_lot: ParkingLot, payment_strategy: PaymentStrategy, default_parking_time: int):
+    def __init__(self, parking_lot: ParkingLot, payment_strategy: PaymentStrategy, default_parking_time,floor_slot_cnt: int):
         self.parking_lot = parking_lot
         self.payment_strategy = payment_strategy
-
+        floor_ids = list(parking_lot.floor_map.keys())
+        print(floor_ids)
+        self.floor_queue = [(floor_id, floor_slot_cnt) for floor_id in floor_ids]
         self.default_parking_time = default_parking_time
 
-    def book_slot_v2(self, vehicle_no: str, vehicle_type: VehicleType, floor_no: int) -> Tuple[ParkingSlot, PaymentReceipt]:
-        if floor_no not in self.parking_lot.floor_map:
-            raise ValueError(f"Incorrect {floor_no} provided")
-        floor = self.parking_lot.floor_map[floor_no]
+    def book_slot_v2(self, vehicle_no: str, vehicle_type: VehicleType) -> Tuple[ParkingSlot, PaymentReceipt]:
+        while not self.floor_queue:
+            raise ValueError(f"All floors are occupied")
+
+        floor_id, slots = self.floor_queue[-1]
+        print(floor_id, slots)
+        slots -= 1
+        if slots > 1:
+            self.floor_queue[-1] = (floor_id, slots)
+        elif slots == 1:
+            self.floor_queue.pop()
+
+        floor = self.parking_lot.floor_map[floor_id]
         now = time.time()
         # 1. Acquire Floor Lock to assign slot in O(1)
         with floor.lock:
@@ -225,12 +236,12 @@ if __name__ == "__main__":
     cc_pay = CreditCardPaymentStrategy(cc_no="abc123")
     upi_pay = UPIPaymentStrategy(vpa="abc@ptsbi")
 
-    slot_booking_service = SlotBookingService(parking_lot=parking_lot, payment_strategy=cc_pay, default_parking_time=default_parking_time)
+    slot_booking_service = SlotBookingService(parking_lot=parking_lot, payment_strategy=cc_pay, default_parking_time=default_parking_time, floor_slot_cnt=num_slots)
 
-    assigned_parking_slot1, payment_receipt = slot_booking_service.book_slot_v2(vehicle_no="DL9CBB5204", vehicle_type=VehicleType.FOUR_WHEELER, floor_no=1)
+    assigned_parking_slot1, payment_receipt = slot_booking_service.book_slot_v2(vehicle_no="DL9CBB5204", vehicle_type=VehicleType.FOUR_WHEELER)
     print(f'Payment Receipt generated - {payment_receipt}')
     print(f"Parking slot assigned - ", assigned_parking_slot1 )
-    assigned_parking_slot2, payment_receipt = slot_booking_service.book_slot_v2(vehicle_no="DL9SAB4567", vehicle_type=VehicleType.TWO_WHEELER, floor_no=3)
+    assigned_parking_slot2, payment_receipt = slot_booking_service.book_slot_v2(vehicle_no="DL9SAB4567", vehicle_type=VehicleType.TWO_WHEELER)
     print(f'Payment Receipt generated - {payment_receipt}')
     print(f"Parking slot assigned - ", assigned_parking_slot2)
 
@@ -245,7 +256,9 @@ if __name__ == "__main__":
     try:
         # simulate failure
         cc_pay.simulate_failure = True
-        slot_booking_service.book_slot_v2(vehicle_no="DL9CBB5205", vehicle_type=VehicleType.FOUR_WHEELER, floor_no=1)
+        slot_booking_service.book_slot_v2(vehicle_no="DL9CBB5205", vehicle_type=VehicleType.FOUR_WHEELER)
+
+
     except ValueError as e:
         print(f"Exception is {e}")
 
