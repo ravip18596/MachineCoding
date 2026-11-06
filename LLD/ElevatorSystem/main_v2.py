@@ -1,11 +1,16 @@
+# Desgin
+# Mutiple elevators
+# Multi set elevators serving low-rise floors and high rise floors separately
+# We will implement zone dispatch algo for selecting which elevator car to select. Strategy design pattern will be used
+# We will implement LOOK elevator car scheduling algo
+# LOOK will allow elevator to service all ride requests in up and down directions without having to do full round from lobby
+# to top and top to lobby.
+import heapq
+import random
 from enum import Enum, auto
-from typing import List, Dict, Set
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
-import heapq
-
-# min_heap -> low rise
-# max_heap -> high rise
+from typing import List, Set, Dict, Union
 
 class Direction(Enum):
     UP = auto()
@@ -25,43 +30,46 @@ class ElevatorCar:
             if self.direction == Direction.UP and target_floor not in self.up_floors:
                 heapq.heappush(self.up_floors, target_floor)
             elif self.direction == Direction.IDLE:
-                heapq.heappush(self.up_floors, target_floor)
                 self.direction = Direction.UP
+                heapq.heappush(self.up_floors, target_floor)
 
         elif target_floor < self.current_floor:
             if self.direction == Direction.DOWN and -target_floor not in self.down_floors:
                 heapq.heappush(self.down_floors, -target_floor)
             elif self.direction == Direction.IDLE:
-                heapq.heappush(self.down_floors, -target_floor)
                 self.direction = Direction.DOWN
+                heapq.heappush(self.down_floors, target_floor)
 
-    # implements LOOK algorithm
     def step(self):
         if self.direction == Direction.UP:
             if len(self.up_floors) > 0:
-                self.current_floor = heapq.heappop(self.up_floors)
+                serviced_floor = heapq.heappop(self.up_floors)
+                print(f"Floor:{serviced_floor} pickup by elevator car:{self.car_no} in UP Direction")
                 if len(self.up_floors) == 0:
-                    self.direction = Direction.DOWN if len(self.down_floors) > 0 else Direction.IDLE
+                    # no floors left, now change direction
+                    self.direction = Direction.DOWN if len(self.down_floors) >0 else Direction.IDLE
             elif len(self.up_floors) == 0:
+                # no floors left, now change direction
                 self.direction = Direction.DOWN if len(self.down_floors) > 0 else Direction.IDLE
                 self.step()
         elif self.direction == Direction.DOWN:
             if len(self.down_floors) > 0:
-                self.current_floor = -heapq.heappop(self.down_floors)
+                serviced_floor = -heapq.heappop(self.down_floors)
+                print(f"Floor:{serviced_floor} pickup by elevator car:{self.car_no} in DOWN Direction")
                 if len(self.down_floors) == 0:
                     self.direction = Direction.UP if len(self.up_floors) > 0 else Direction.IDLE
             elif len(self.down_floors) == 0:
+                # no floors to be serviced left, change direction
                 self.direction = Direction.UP if len(self.up_floors) > 0 else Direction.IDLE
-                self.step()
 
     @property
-    def pending_stops(self):
+    def pending_stop_counts(self) -> int:
         return len(self.up_floors) + len(self.down_floors)
+
 
 class DispatchStrategy(ABC):
     @abstractmethod
-    def select_elevator_car(self, cars: List[ElevatorCar], source: int, destination: int) -> ElevatorCar:
-        pass
+    def select_elevator_car(self, source, destination: int) -> int:pass
 
 
 @dataclass
@@ -69,76 +77,58 @@ class ZoneDispatchStrategy(DispatchStrategy):
     zone_config: Dict[str, List[int]]
     floor_config: Dict[str, Set[int]]
 
-    def select_elevator_car(self, cars: List[ElevatorCar], source: int, destination: int) -> ElevatorCar:
-        # resolving zone
+    def select_elevator_car(self, source, destination: int) -> int:
         if source == destination:
-            raise ValueError("Source and destination cannot be the same")
-        """
-        floor_config = {
-            'low-rise': set([i for i in range(1, 11)]),
-            'high-rise': {1}.union(set(i for i in range(11, 21)))
-        }
-        """
+            raise ValueError("Source can't be same as destination")
+
         assigned_zone = ''
-        zone_cars = []
         for zone, floors in self.floor_config.items():
             if source in floors and destination in floors:
                 assigned_zone = zone
-                zone_cars = self.zone_config[assigned_zone]
                 break
 
-        if not assigned_zone:
-            raise ValueError("No elevator car available to service request")
+        selected_elevator_cars = self.zone_config[assigned_zone]
+        return random.randrange(min(selected_elevator_cars), max(selected_elevator_cars))
 
-        candidate_cars = [car for car in cars if car.car_no in zone_cars]
-        return min(candidate_cars, key=lambda car: (car.pending_stops, abs(source - car.current_floor)))
 
-# Facade Design Pattern
+
 class ElevatorManager:
-    def __init__(self, elevator_cars: List[int], strategy: DispatchStrategy):
-        self.elevator_cars = [ElevatorCar(car_no=car_id) for car_id in elevator_cars]
+    def __init__(self, car_ids: List[int], strategy: DispatchStrategy):
+        self.cars = [ElevatorCar(i) for i in car_ids]
         self.strategy = strategy
 
-    def request_ride(self, source: int, destination: int):
-        print(f"[Elevator Manager] requested ride from source:{source} to destination:{destination}")
-        assigned_car = self.strategy.select_elevator_car(cars=self.elevator_cars, source=source, destination=destination)
-        assigned_car.add_stop(source)
-        assigned_car.add_stop(destination)
-        print(f"[Elevator Manager]: assigned elevator car is {assigned_car}")
-        print(f"[Elevator Manager]: added source:{source}, destination:{destination} to assigned car\n")
-        self.step()
-
     def step(self):
-        for car in self.elevator_cars:
+        for car in self.cars:
             car.step()
+
+    def request_ride(self, source, destination: int):
+        print(f"[request_ride] assigned ride from {source} to {destination}")
+        selected_car = self.cars[self.strategy.select_elevator_car(source, destination)]
+        print(f"[request_ride] selected elevator car is {selected_car}")
+        selected_car.add_stop(source)
+        selected_car.add_stop(destination)
+        print(f"[request_ride] Elevator Car state:{selected_car} after adding source and destination\n")
 
 
 if __name__ == '__main__':
-    # suppose there are 4 elevator cars
     zone_config = {
-        'low-rise': [1, 2],
-        'high-rise': [3, 4]
+        'low-rise': [1,2],
+        'high-rise': [3,4]
     }
 
     floor_config = {
-        'low-rise': set([i for i in range(1,11)]),
-        'high-rise': {1}.union(set(i for i in range(11, 21)))
+        'low-rise': set([i for i in range(1, 11)]),
+        'high-rise': {1}.union(set([i for i in range(11,21)]))
     }
 
-    zone_dispatch = ZoneDispatchStrategy(zone_config=zone_config, floor_config=floor_config)
-    elevator_manager = ElevatorManager(elevator_cars=[1,2,3,4], strategy=zone_dispatch)
+    zone_dispatch_strategy = ZoneDispatchStrategy(zone_config, floor_config)
+    elevator_manager = ElevatorManager(car_ids=[1,2,3,4], strategy=zone_dispatch_strategy)
 
-    elevator_manager.request_ride(source=1, destination=9)
+    elevator_manager.request_ride(1, 9)
     elevator_manager.step()
-
-    elevator_manager.request_ride(source=4, destination=8)
+    elevator_manager.request_ride(1, 15)
     elevator_manager.step()
-
-    elevator_manager.request_ride(source=1, destination=15)
+    elevator_manager.request_ride(18, 11)
     elevator_manager.step()
-
-    elevator_manager.request_ride(source=13, destination=1)
-    elevator_manager.step()
-
-    elevator_manager.request_ride(source=18, destination=1)
+    elevator_manager.request_ride(15, 17)
     elevator_manager.step()
