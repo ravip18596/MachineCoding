@@ -85,6 +85,7 @@ class UPIPaymentStrategy(PaymentStrategy):
     def pay(self, amt: float) -> PaymentReceipt:
         return PaymentReceipt(amt=amt, status=PaymentStatus.SUCCESS)
 
+
 # Facade Design Pattern
 # provides veil in back becoming an interface
 class SlotBookingService:
@@ -97,7 +98,7 @@ class SlotBookingService:
         self.default_parking_time = default_parking_time
 
     def book_slot_v2(self, vehicle_no: str, vehicle_type: VehicleType) -> Tuple[ParkingSlot, PaymentReceipt]:
-        while not self.floor_queue:
+        if not self.floor_queue:
             raise ValueError(f"All floors are occupied")
 
         floor_id, slots = self.floor_queue[-1]

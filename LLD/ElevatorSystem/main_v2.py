@@ -132,3 +132,4 @@ if __name__ == '__main__':
     elevator_manager.step()
     elevator_manager.request_ride(15, 17)
     elevator_manager.step()
+
