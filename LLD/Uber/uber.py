@@ -153,15 +153,24 @@ class TripManager:
 
 
     def request_trip(self, trip: Trip):
+        if trip.status != TripStatus.STALE:
+            raise Exception("Previous state is not STALE")
         trip.status = TripStatus.REQUESTED
 
     def accept_trip(self, trip: Trip):
+        if trip.status != TripStatus.REQUESTED:
+            raise Exception("Previous state is not REQUESTED")
         trip.status = TripStatus.ACCEPTED
 
     def start_trip(self, trip: Trip):
+        if trip.status != TripStatus.ACCEPTED:
+            raise Exception("ACCEPTED state missing")
         trip.status = TripStatus.IN_PROGRESS
 
     def complete_trip(self, trip: Trip) -> PaymentReceipt:
+        if trip.status != TripStatus.IN_PROGRESS:
+            raise Exception("IN_PROGRESS state missing")
+
         trip.status = TripStatus.COMPLETED
         driver = self.driver_map[trip.driver_id]
         amt = self.fare_strategy.calculate_fare(trip.src, trip.dest, driver.vehicle_type)
