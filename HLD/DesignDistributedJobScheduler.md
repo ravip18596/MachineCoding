@@ -15,8 +15,7 @@ scheduling precision.
 2. Covers one-time scheduled job and recurring cron job
 3. Adding job retries with exponential back-off in case of failure with base delay of 5s
 4. Max retry count for failing job is 3 and then moved to DLQ
-5. 
-6. Assuming avg daily jobs as 10% of 10M peak jobs daily
+5. Assuming avg daily jobs as 10% of 10M peak jobs daily
 6. Assuming per job meta data as 10 KB
 
 ### Non Functional Requirements
@@ -55,15 +54,24 @@ scheduling precision.
    a. PK is user_id
 
 > Data flow
-- Client sends request to job scheduler to submit job
-- All jobs are written to the jobs table to be executed at scheduled_time in kafka consumer
-- Job Scheduler parses the recurring job's cron expression and insert an entry in the job_executions table.
-- Once recurring job's last job_execution finishes, we again parse the cron expression and write next job execution entry into the job_executions table
-- Job scheduler service immediately produce the current scheduled jobs to kafka and future scheduled jobs are pushed to kafka after in-memory min-heap checks scheduled_time <= now()  
-- Failed jobs are retried and fetched from jobs table and retry count updated with exponential back-off
-    - query: select job_id from job_executions where job_status = 'FAILED' and retry_count <= 3;
-- After retry_count exceeds 3, the job is set to DLQ state and pushed to kafka dlq topic to handled later on
-    - query: select job_id from job_executions where job_status = 'DLQ'
+1. Client will use Rest APIs to send delayed and recurring jobs to the job scheduler service.
+2. job scheduler saves data in jobs table in postgres
+3. job scheduler calculates scheduled time for both job_types and store it scheduled_time in job_execution table
+4. for job_type=RECURRING, job scheduler will re-calculate the next scheduled time after parsing cron expression when last execution finishes
+5. job scheduler produces jobs to kafka broker in jobs topic
+6. job_scheduler picks up failed jobs through an hourly cron using query - Select job_id from job_execution where job_status = 'FAILED'
+7. 3 max_retries are done on the failed job with next_retry_at calculated using formula now + base_delay * 2^retry_count
+8. After all retries are exhausted then job scheduler pushes the data to DLQ kafka topic to be processed later on using 
+   query = select job_id from job_execution where job_status = 'DLQ'
+9. To prevent midnight thundering, we will need to horizontally scale postgres and kafka.
+   a. shard postgres using user_id as key
+   b. increase partition of kafka topics in odd numbers
+10. To prevent job execution loss in kafka consumer if job failed when being processed, we will resort to manual offset commit, so that job will be picked up again during topic partition rebalancing
+11. kafka topic partition key will be job_id
+12. to prevent multiple schedulers from claiming same job, we can append to queries FOR UPDATE SKIP LOCKED;
+    a. select job_id from job_execution where job_status = 'SCHEDULED' and scheduled_time <= now() FOR UPDATE SKIP LOCKED;
+13. job_scheduler will produce data using exactly-once-semantics i.e. ACK(all)
+14. for RECURRING jobs, job scheduler will have a min_heap which will store data as (scheduled_time, job_id) and when min_heap.top() <= now(), top is popped from min_heap and job_id is produced to kafka.
 
 ### Architecture Diagram
 
@@ -75,12 +83,12 @@ scheduling precision.
 Sub-second Triggering & Avoiding Duplicate Dispatch: If multiple scheduler/poller nodes watch for due jobs,
 how do you prevent two nodes from dispatching the same job twice?
 
-- sub-second triggering: Partition key will be the job_id for all jobs.
+- sub-second triggering: kafka job topic partition key will be the job_id for all jobs.
 - The recurring job can be produced to kafka cluster using exactly-once-semantics i.e. ACK(ALL) at producer level
 - For scheduled or recurring jobs, we can use an in-memory min-heap which stores data as (scheduled_time, job_id) 
   - it will poll every second and try to check if job_id matches the condition min_heap.top() <= now()
   - then pop the tuple and fetch job from jobs table using job_id and produce it to kafka cluster with ACK(ALL)
-- avoiding duplicates among multiple schedulers: A jobScheduler will look for job from jobs table using an atomic DB claim. 
+- avoiding duplicates among multiple schedulers: A jobScheduler will look for job from job_execution table using an atomic DB claim. 
   - query will be: select job_id from job_executions where job_status = 'SCHEDULED' FOR UPDATE SKIP LOCKED;. followed by
   - second query: update job_executions set job_status = 'IN_PROGRESS' where job_id = {job_id};
 
