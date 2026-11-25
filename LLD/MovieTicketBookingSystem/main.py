@@ -1,211 +1,203 @@
-from enum import Enum
-from datetime import datetime
-from typing import List
+"""
+Core Entities => CinemaHall, Screen, Show, Seat, Movie, PaymentReceipt
+Enums => Langauge, Genre, PaymentStatus
+Strategy DP => PaymentStrategy
+Facade DP => SeatBookingService
 
-class BookingStatus(Enum):
-    REQUESTED, PENDING, CONFIRMED, CANCELLED = 1, 2, 3, 4
+"""
+import threading
+import time
+import uuid
+from enum import Enum, auto
+from dataclasses import dataclass, field
+from abc import ABC, abstractmethod
+from typing import List, Dict, Optional
+
+
+class Langauge(Enum):
+    ENGLISH = auto()
+    HINDI = auto()
+    MALAYALAM = auto()
+
+class Genre(Enum):
+    THRILLER = auto()
+    COMEDY = auto()
+    FICTION = auto()
 
 class PaymentStatus(Enum):
-    PENDING, SUCCESS, CONFIRMED, REFUNDED = 1, 2, 3, 4
+    SUCCESS = auto()
+    FAIL = auto()
+    REFUND_SUCCESS = auto()
+    REFUND_FAIL = auto()
 
-class AccountStatus(Enum):
-    ACTIVE, INACTIVE, BLOCKED, CLOSED = 1, 2, 3, 4
+class SeatStatus(Enum):
+     AVAILABLE = auto()
+     HOLD = auto()
+     BOOKED = auto()
 
-class SeatType(Enum):
-    PREMIUM, REGULAR, EMERGENCY_EXIT = 1, 2, 3
-
-
-class Address:
-    def __init__(self, street, city, state, zip_code, country) -> None:
-        self.__street_address = street
-        self.__city = city
-        self.__state = state
-        self.__zip_code = zip_code
-        self.__country = country
-
-'''
-Account, Customer, Guest, Admin, FrontDesk - These classes represent the different people that
- interact with our system:
-'''
-
-class Account:
-    def __init__(self, id, password, status=AccountStatus.ACTIVE):
-        self.__id = id
-        self.__password = password
-        self.__status = status
-
-    def reset_password(self):
-        None
-
-from abc import ABC, abstractmethod
-
-class Person(ABC):
-    def __init__(self, name, address:Address, email, phone, account) -> None:
-        self.__name = name
-        self.__address = address
-        self.__email = email
-        self.__phone = phone
-        self.__account = account
-
-class Customer:
-    def create_booking(self, booking: Booking):
-        pass
-
-    def get_bookings():
-        pass
-
-
-class FrontDesk:
-    def create_booking(self, booking: Booking):
-        pass
-
-class Admin:
-    def add_movie(self, movie):
-        pass
-
-    def add_show(self, show):
-        pass
-
-    def block_customer(self, customer):
-        pass
-
-
-class Guest:
-    def register_account(self):
-        pass
-
-
-''' 
-A movie has many shows
-'''
-class Show:
-    def __init__(self, id, movie: Movie, start_time, end_time, played_at: CinemaHall) -> None:
-        self.__show_id = id
-        self.__movie = movie
-        self.__start_time = start_time
-        self.__end_time = end_time
-        self.__played_at = played_at
-
-class Movie:
-    def __init__(self, title, genre, desc, country, duration_in_mins, lang, rel_date, added_by: Admin) -> None:
-        self.__title = title
-        self.__genre = genre
-        self.__description = desc
-        self.__country = country
-        self.__duration_in_mins = duration_in_mins
-        self.__language = lang
-        self.__release_date = rel_date
-        self.__added_by = added_by
-
-        self.__shows = []
-
-    def get_shows() -> List(Show):
-        return 
-
-
-'''
-Customers reserve seats using booking and make payments
-'''
-
-class Booking:
-    def __init__(self, booking_no, show_id, status: BookingStatus, show_seats: ShowSeat, num_seats, payment) -> None:
-        self.__booking_number = booking_no
-        self.__show = show_id
-        self.__status = status
-        self.__seats = show_seats
-        self.__created_on = datetime.now()
-        self.__num_seats = num_seats
-        self.__payment = payment
-
-    def cancel(self):
-        pass
-
-    def make_payment(self, payment):
-        pass
-
-    def assign_seats(self, seats):
-        pass
-
-
-class ShowSeat:
-    def __init__(self, id: int, is_reserved: bool, price) -> None:
-        self.__seat_id = id
-        self.is_reserved = is_reserved
-        self.price = price
-
-class Payment:
-    def __init__(self, amt, txn_id, status) -> None:
-        self.__amount = amt
-        self.__created_on = datetime.now()
-        self.__transaction_id = txn_id
-        self.__payment_status = status
-
-'''
-Each city has many cinemas and each cinema has many cinemaHalls
-'''
-
-class City:
-    def __init__(self, name, state, zip_code) -> None:
-        self.__name = name
-        self.__state = state
-        self.zip_code = zip_code
-
-class Cinemas:
-    def __init__(self, name: str, location, total_cinema_halls, halls: CinemaHall) -> None:
-        self.__name = name
-        self.__address = location
-        self.__total_cinema_halls = total_cinema_halls
-        self.__halls = halls
-
+@dataclass
 class CinemaHall:
-    def __init__(self, name, total_seats, seats: ShowSeat, shows: Show) -> None:
-        self.__name = name
-        self.__total_seats = total_seats
-        self.__seats = seats
-        self.__shows = shows
+    screens: List[int]
+    id: str = field(default_factory=lambda: uuid.uuid4().hex)
 
-'''
-Catalog will implement Search to facilitate product search
-'''
+@dataclass
+class Screen:
+    show_ids: List[int]
+    id: str = field(default_factory=lambda: uuid.uuid4().hex)
 
-class Search(ABC):
-    def search_by_title(self, title):
-        pass
+@dataclass
+class Movie:
+    id: int
+    name: str
+    language: Langauge
+    genre: Genre
 
-    def search_by_genre(self, genre):
-        pass
+@dataclass
+class Show:
+    seat_ids: List[int]
+    id: int
+    movie: Movie
 
-    def search_by_release_date(self, release_date):
-        pass
+@dataclass
+class User:
+    name: str
+    id: str = field(default_factory=lambda: uuid.uuid4().hex)
 
-    def search_by_language(self, lang):
-        pass
+@dataclass
+class Seat:
+    id: int
+    amount: float
+    seat_status: SeatStatus = SeatStatus.AVAILABLE
+    locked_by: Optional[User] = None
+    hold_secs: int = 2
+    expires_at: float = float('inf')
 
-    def search_by_city(self, city):
-        pass
+    def is_available(self) -> bool:
+        return self.seat_status == SeatStatus.AVAILABLE and time.time() <= self.expires_at
+
+    def hold_seats(self, user: User):
+        if self.seat_status != SeatStatus.AVAILABLE:
+            raise ValueError("[Seat] seat status is not available")
+        now = time.time()
+        self.locked_by = user
+        self.expires_at = now + self.hold_secs
+        self.seat_status = SeatStatus.HOLD
+
+    def book_seat(self, user: User):
+        if self.seat_status != SeatStatus.HOLD:
+            raise ValueError("[Seat] seat status is not hold")
+        if self.locked_by == user and time.time() < self.expires_at:
+            self.seat_status = SeatStatus.BOOKED
+
+    def release_seat(self):
+        if self.seat_status != SeatStatus.BOOKED:
+            raise ValueError("[Seat] seat status is not booked")
+        self.locked_by = None
+        self.expires_at = float('inf')
+        print(f"Successfully released hold on seat id: {self.id}")
+        self.seat_status = SeatStatus.AVAILABLE
 
 
-class Catalog(Search):
-    def __init__(self) -> None:
-        self.__movie_titles = {}
-        self.__movie_genres = {}
-        self.__movie_langs = {}
-        self.__movie_rel_date = {}
-        self.__movie_cities = {}
+@dataclass
+class PaymentReceipt:
+    amount: float
+    id: str = field(default_factory=lambda: uuid.uuid4().hex)
+    status: PaymentStatus = PaymentStatus.SUCCESS
 
-    def search_by_city(self, city):
-        return self.__movie_cities.get(city)
-    
-    def search_by_title(self, title):
-        return self.__movie_titles.get(title)
-    
-    def search_by_lang(self, lang):
-        return self.__movie_langs.get(lang)
-    
-    def search_by_genres(self, genre):
-        return self.__movie_genres.get(genre)
-    
-    def search_by_release_date(self, rel_date):
-        return self.__movie_rel_date.get(rel_date)
-    
 
+class PaymentStrategy(ABC):
+    @abstractmethod
+    def pay(self, amount: float) -> PaymentReceipt:pass
+    @abstractmethod
+    def refund(self, amount: float) -> PaymentReceipt: pass
+
+@dataclass
+class UPIPayment(PaymentStrategy):
+    vpa: str
+    simulate_failure: bool = False
+
+    def pay(self, amount) -> PaymentReceipt:
+        receipt = PaymentReceipt(amount=amount)
+        if self.simulate_failure:
+            receipt.status = PaymentStatus.FAIL
+            print(f"[PG] Payment of amount: {amount} failed for vpa: {self.vpa}")
+        else:
+            print(f"[PG] Payment of amount: {amount} successful for vpa: {self.vpa}")
+        return receipt
+
+    def refund(self, amount) -> PaymentReceipt:
+        receipt = PaymentReceipt(amount=amount, status=PaymentStatus.REFUND_SUCCESS)
+        if self.simulate_failure:
+            receipt.status = PaymentStatus.REFUND_FAIL
+            print(f"[PG] Refund of amount: {amount} failed for vpa: {self.vpa}")
+        else:
+            print(f"[PG] Refund of amount: {amount} successful for vpa: {self.vpa}")
+        return receipt
+
+
+class BookingService:
+    def __init__(self, seat_amount_map: Dict[int, int], pay_strategy: PaymentStrategy):
+        self.seats = [Seat(id=id, amount=amt) for id, amt in seat_amount_map.items()]
+        self.pay_strategy = pay_strategy
+        self._lock = threading.Lock()
+
+    def _fetch_seat(self, seat_id) -> Seat:
+        seat = None
+        for s in self.seats:
+            if s.id == seat_id:
+                seat = s
+        if seat is None:
+            raise ValueError("incorrect seat no provided")
+        return seat
+
+    def book_seat(self, user: User, seat_id: int):
+        with self._lock:
+            seat = self._fetch_seat(seat_id)
+            if not seat.is_available():
+                raise ValueError("[Service] Requested seat is not available")
+
+            seat.hold_seats(user=user)
+
+        receipt = self.pay_strategy.pay(seat.amount)
+        if receipt.status == PaymentStatus.SUCCESS:
+            print(f"Payment is successful. Receipt: {receipt}")
+            with self._lock:
+                seat.book_seat(user)
+        else:
+            print(f"Payment is unsuccessful. Proceeding to refund.")
+            with self._lock:
+                seat.release_seat()
+            receipt = self.pay_strategy.refund(seat.amount)
+            print(f"[Service] refund receipt: {receipt}")
+
+    def cancel_seat_booking(self, seat_id: int):
+        with self._lock:
+            seat = self._fetch_seat(seat_id)
+            if seat.is_available():
+                print("no need to cancel seat booking")
+                return
+
+            seat.release_seat()
+            print(f"[Service] Seat:{seat_id} booking cancelled")
+
+        receipt = self.pay_strategy.refund(seat.amount)
+        print(f"[Service] refund receipt: {receipt}")
+
+
+if __name__ == '__main__':
+    user1 = User(name="Ravi Prakash")
+    upi_pay_strategy = UPIPayment(vpa="abc@ybl")
+    seat_amount_map = {
+        1: 100,
+        2: 200,
+        3: 300
+    }
+    movie = Movie(id=1, name="Drishyam", language=Langauge.HINDI, genre=Genre.THRILLER)
+    show = Show(id=1, seat_ids=[1,2,3], movie=movie)
+    screen = Screen(show_ids=[1])
+    cinema_hall = CinemaHall(screens=[1])
+
+    service = BookingService(seat_amount_map, pay_strategy=upi_pay_strategy)
+    service.book_seat(user1, seat_id=1)
+    print()
+    service.cancel_seat_booking(seat_id=1)
