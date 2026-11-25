@@ -73,7 +73,7 @@ class Seat:
     expires_at: float = float('inf')
 
     def is_available(self) -> bool:
-        return self.seat_status == SeatStatus.AVAILABLE and time.time() <= self.expires_at
+        return self.seat_status == SeatStatus.AVAILABLE or (self.seat_status == SeatStatus.HOLD and time.time() >= self.expires_at)
 
     def hold_seats(self, user: User):
         if self.seat_status != SeatStatus.AVAILABLE:
